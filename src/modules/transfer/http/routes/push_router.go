@@ -40,12 +40,19 @@ func PushData(c *gin.Context) {
 		metricValues = append(metricValues, v)
 	}
 
-	if backend.Config.Enabled {
-		backend.Push2TsdbSendQueue(metricValues)
-	}
+	// send to judge
+	backend.Push2JudgeQueue(metricValues)
 
-	if backend.Config.Enabled {
-		backend.Push2JudgeSendQueue(metricValues)
+	// send to push endpoints
+	pushEndpoints, err := backend.GetPushEndpoints()
+	if err != nil {
+		logger.Errorf("could not find pushendpoint")
+		render.Data(c, "error", err)
+		return
+	} else {
+		for _, pushendpoint := range pushEndpoints {
+			pushendpoint.Push2Queue(metricValues)
+		}
 	}
 
 	if msg != "" {

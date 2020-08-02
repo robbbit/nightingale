@@ -10,27 +10,29 @@ import (
 	"github.com/toolkits/pkg/nux"
 
 	"github.com/didi/nightingale/src/dataobj"
+	"github.com/didi/nightingale/src/modules/collector/core"
 )
 
-func FsKernelMetrics() (L []*dataobj.MetricValue) {
+func FsKernelMetrics() []*dataobj.MetricValue {
 	maxFiles, err := nux.KernelMaxFiles()
 	if err != nil {
-		logger.Error("failed collect kernel metrics:", err)
-		return
+		logger.Errorf("failed to call collect KernelMaxFiles:%v\n", err)
+		return nil
 	}
 
 	allocateFiles, err := nux.KernelAllocateFiles()
 	if err != nil {
-		logger.Error("failed to call KernelAllocateFiles:", err)
-		return
+		logger.Errorf("failed to call KernelAllocateFiles:%v\n", err)
+		return nil
 	}
 
 	v := math.Ceil(float64(allocateFiles) * 100 / float64(maxFiles))
-	L = append(L, GaugeValue("sys.fs.files.max", maxFiles))
-	L = append(L, GaugeValue("sys.fs.files.free", maxFiles-allocateFiles))
-	L = append(L, GaugeValue("sys.fs.files.used", allocateFiles))
-	L = append(L, GaugeValue("sys.fs.files.used.percent", v))
-	return
+	return []*dataobj.MetricValue{
+		core.GaugeValue("sys.fs.files.max", maxFiles),
+		core.GaugeValue("sys.fs.files.free", maxFiles-allocateFiles),
+		core.GaugeValue("sys.fs.files.used", allocateFiles),
+		core.GaugeValue("sys.fs.files.used.percent", v),
+	}
 }
 
 func ProcsNumMetrics() []*dataobj.MetricValue {
@@ -57,7 +59,7 @@ func ProcsNumMetrics() []*dataobj.MetricValue {
 	}
 
 	return []*dataobj.MetricValue{
-		GaugeValue("sys.ps.process.total", num),
+		core.GaugeValue("sys.ps.process.total", num),
 	}
 }
 
@@ -86,6 +88,6 @@ func EntityNumMetrics() []*dataobj.MetricValue {
 	}
 
 	return []*dataobj.MetricValue{
-		GaugeValue("sys.ps.entity.total", num),
+		core.GaugeValue("sys.ps.entity.total", num),
 	}
 }

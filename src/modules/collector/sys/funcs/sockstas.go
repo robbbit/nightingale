@@ -5,18 +5,20 @@ import (
 	"github.com/toolkits/pkg/nux"
 
 	"github.com/didi/nightingale/src/dataobj"
+	"github.com/didi/nightingale/src/modules/collector/core"
 )
 
-func SocketStatSummaryMetrics() (L []*dataobj.MetricValue) {
+func SocketStatSummaryMetrics() []*dataobj.MetricValue {
+	ret := make([]*dataobj.MetricValue, 0)
 	ssMap, err := nux.SocketStatSummary()
 	if err != nil {
-		logger.Error("failed to collect SocketStatSummaryMetrics:", err)
-		return
+		logger.Errorf("failed to collect SocketStatSummaryMetrics:%v\n", err)
+		return ret
 	}
 
 	for k, v := range ssMap {
-		L = append(L, GaugeValue("net."+k, v))
+		ret = append(ret, core.GaugeValue("net."+k, v))
 	}
 
-	return
+	return ret
 }

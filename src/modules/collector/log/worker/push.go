@@ -7,8 +7,8 @@ import (
 	"time"
 
 	"github.com/didi/nightingale/src/dataobj"
+	"github.com/didi/nightingale/src/modules/collector/core"
 	"github.com/didi/nightingale/src/modules/collector/stra"
-	"github.com/didi/nightingale/src/modules/collector/sys/funcs"
 	"github.com/didi/nightingale/src/toolkits/identity"
 
 	"github.com/toolkits/pkg/logger"
@@ -165,7 +165,7 @@ func ToPushQueue(strategy *stra.Strategy, tms int64, pointMap map[string]*PointC
 
 		var tags map[string]string
 		if tagstring == "null" {
-			tags = make(map[string]string, 0)
+			tags = make(map[string]string)
 		} else {
 			tags = dataobj.DictedTagstring(tagstring)
 		}
@@ -208,7 +208,7 @@ func postToCollector(paramPoints []*dataobj.MetricValue) {
 	sort.Sort(tsps)
 
 	for _, ps := range tsps {
-		funcs.Push(ps.ps)
+		core.Push(ps.ps)
 
 		// 1000ms是经验值
 		// 对于10G/小时的数据量+异步落盘的场景, 产生的结果友好一些

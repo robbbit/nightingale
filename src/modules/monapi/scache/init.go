@@ -177,6 +177,37 @@ func syncCollects() {
 		}
 	}
 
+	pluginConfigs, err := model.GetPluginCollects()
+	if err != nil {
+		logger.Warningf("get log collects err:%v", err)
+	}
+
+	for _, p := range pluginConfigs {
+		leafNids, err := GetLeafNids(p.Nid, []int64{})
+		if err != nil {
+			logger.Warningf("get LeafNids err:%v %v", err, p)
+			continue
+		}
+
+		Endpoints, err := model.EndpointUnderLeafs(leafNids)
+		if err != nil {
+			logger.Warningf("get endpoints err:%v %v", err, p)
+			continue
+		}
+
+		for _, endpoint := range Endpoints {
+			name := endpoint.Ident
+			c, exists := collectMap[name]
+			if !exists {
+				c = model.NewCollect()
+			}
+
+			key := fmt.Sprintf("%s-%d", p.Name, p.Nid)
+			c.Plugins[key] = p
+			collectMap[name] = c
+		}
+	}
+
 	CollectCache.SetAll(collectMap)
 }
 
@@ -201,10 +232,15 @@ func GetLeafNids(nid int64, exclNid []int64) ([]int64, error) {
 		return ids, nil
 	}
 
+	exclLeafIds, err := GetExclLeafIds(exclNid)
+	if err != nil {
+		return leafIds, err
+	}
+
 	for _, id := range ids {
 		idsMap[id] = true
 	}
-	for _, id := range exclNid {
+	for _, id := range exclLeafIds {
 		delete(idsMap, id)
 	}
 
@@ -224,4 +260,26 @@ func removeDuplicateElement(addrs []string) []string {
 		}
 	}
 	return result
+}
+
+// GetExclLeafIds 获取排除节点下的叶子节点
+func GetExclLeafIds(exclNid []int64) (leafIds []int64, err error) {
+	for _, nid := range exclNid {
+		node, err := model.NodeGet("id", nid)
+		if err != nil {
+			return leafIds, err
+		}
+
+		if node == nil {
+			logger.Warningf("no such node[%d]", nid)
+			continue
+		}
+
+		ids, err := node.LeafIds()
+		if err != nil {
+			return leafIds, err
+		}
+		leafIds = append(leafIds, ids...)
+	}
+	return leafIds, nil
 }

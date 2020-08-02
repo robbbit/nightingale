@@ -36,12 +36,18 @@ func (t *Transfer) Push(args []*dataobj.MetricValue, reply *dataobj.TransferResp
 		items = append(items, v)
 	}
 
-	if backend.Config.Enabled {
-		backend.Push2TsdbSendQueue(items)
-	}
+	// send to judge
+	backend.Push2JudgeQueue(items)
 
-	if backend.Config.Enabled {
-		backend.Push2JudgeSendQueue(items)
+	// send to push endpoints
+	pushEndpoints, err := backend.GetPushEndpoints()
+	if err != nil {
+		logger.Errorf("could not find pushendpoint")
+		return err
+	} else {
+		for _, pushendpoint := range pushEndpoints {
+			pushendpoint.Push2Queue(items)
+		}
 	}
 
 	if reply.Invalid == 0 {

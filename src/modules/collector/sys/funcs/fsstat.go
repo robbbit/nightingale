@@ -9,22 +9,24 @@ import (
 	"time"
 
 	"github.com/didi/nightingale/src/dataobj"
+	"github.com/didi/nightingale/src/modules/collector/core"
 	"github.com/didi/nightingale/src/modules/collector/sys"
 
 	"github.com/toolkits/pkg/logger"
 	"github.com/toolkits/pkg/nux"
+	"github.com/toolkits/pkg/slice"
 )
 
-func FsRWMetrics() (L []*dataobj.MetricValue) {
+func FsRWMetrics() []*dataobj.MetricValue {
+	ret := make([]*dataobj.MetricValue, 0)
+
 	mountPoints, err := nux.ListMountPoint()
 	if err != nil {
-		logger.Error("failed to call ListMountPoint:", err)
-		return
+		logger.Errorf("failed to call ListMountPoint:%v\n", err)
+		return ret
 	}
 
 	fsFileFilter := make(map[string]struct{}) //过滤 /proc/mounts 出现重复的fsFile
-
-	ignoreMountPointsPrefix := sys.Config.MountIgnorePrefix
 
 	for idx := range mountPoints {
 		var du *nux.DeviceUsage
@@ -34,7 +36,8 @@ func FsRWMetrics() (L []*dataobj.MetricValue) {
 			continue
 		}
 
-		if hasIgnorePrefix(mountPoints[idx][1], ignoreMountPointsPrefix) {
+		if hasIgnorePrefix(du.FsFile, sys.Config.MountIgnore.Prefix) &&
+			!slice.ContainsString(sys.Config.MountIgnore.Exclude, du.FsFile) {
 			continue
 		}
 
@@ -50,14 +53,14 @@ func FsRWMetrics() (L []*dataobj.MetricValue) {
 		f, err := os.Open(du.FsFile)
 		if err != nil {
 			logger.Error("target mount point open failed:", err)
-			L = append(L, GaugeValue("disk.rw.error", 1, tags))
+			ret = append(ret, core.GaugeValue("disk.rw.error", 1, tags))
 			continue
 		}
 
 		fs, err := f.Stat()
 		if err != nil {
 			logger.Error("get target mount point status failed:", err)
-			L = append(L, GaugeValue("disk.rw.error", 2, tags))
+			ret = append(ret, core.GaugeValue("disk.rw.error", 2, tags))
 			continue
 		}
 
@@ -70,13 +73,13 @@ func FsRWMetrics() (L []*dataobj.MetricValue) {
 		content := "FS-RW" + now
 		err = CheckFS(file, content)
 		if err != nil {
-			L = append(L, GaugeValue("disk.rw.error", 3, tags))
+			ret = append(ret, core.GaugeValue("disk.rw.error", 3, tags))
 		} else {
-			L = append(L, GaugeValue("disk.rw.error", 0, tags))
+			ret = append(ret, core.GaugeValue("disk.rw.error", 0, tags))
 		}
 	}
 
-	return
+	return ret
 }
 
 func CheckFS(file string, content string) error {
@@ -101,7 +104,7 @@ func CheckFS(file string, content string) error {
 	}
 	if string(read) != content {
 		logger.Error("Read content failed: ", string(read))
-		return errors.New("Read content failed")
+		return errors.New("read content failed")
 	}
 	//clean the file
 	err = os.Remove(file)

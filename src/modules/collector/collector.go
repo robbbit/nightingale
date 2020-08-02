@@ -10,6 +10,7 @@ import (
 
 	"github.com/didi/nightingale/src/modules/collector/cache"
 	"github.com/didi/nightingale/src/modules/collector/config"
+	"github.com/didi/nightingale/src/modules/collector/core"
 	"github.com/didi/nightingale/src/modules/collector/http/routes"
 	"github.com/didi/nightingale/src/modules/collector/log/worker"
 	"github.com/didi/nightingale/src/modules/collector/stra"
@@ -28,12 +29,14 @@ import (
 	"github.com/toolkits/pkg/runner"
 )
 
-const version = 1
-
 var (
 	vers *bool
 	help *bool
 	conf *string
+
+	version   = "No Version Provided"
+	gitHash   = "No GitHash Provided"
+	buildTime = "No BuildTime Provided"
 )
 
 func init() {
@@ -43,7 +46,9 @@ func init() {
 	flag.Parse()
 
 	if *vers {
-		fmt.Println("version:", version)
+		fmt.Println("Version:", version)
+		fmt.Println("Git Commit Hash:", gitHash)
+		fmt.Println("UTC Build Time:", buildTime)
 		os.Exit(0)
 	}
 
@@ -71,7 +76,7 @@ func main() {
 	sys.Init(cfg.Sys)
 	stra.Init(cfg.Stra)
 
-	funcs.InitRpcClients()
+	core.InitRpcClients()
 	funcs.BuildMappers()
 	funcs.Collect()
 
@@ -92,6 +97,10 @@ func main() {
 	go worker.UpdateConfigsLoop()
 	go worker.PusherStart()
 	go worker.Zeroize()
+
+	if cfg.Logger.Level != "DEBUG" {
+		gin.SetMode(gin.ReleaseMode)
+	}
 
 	r := gin.New()
 	routes.Config(r)

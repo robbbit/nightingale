@@ -19,6 +19,7 @@ type SeriesQuerySection struct {
 	MaxIdle          int    `json:"maxIdle"`     //
 	ConnTimeout      int    `json:"connTimeout"` // 连接超时
 	CallTimeout      int    `json:"callTimeout"` // 请求超时
+	IndexMod         string `json:"indexMod"`
 	IndexPath        string `json:"indexPath"`
 	IndexCallTimeout int    `json:"indexCallTimeout"` // 请求超时
 }
@@ -28,4 +29,6 @@ func Init(cfg SeriesQuerySection) {
 	TransferConnPools = pools.NewConnPools(
 		Config.MaxConn, Config.MaxIdle, Config.ConnTimeout, Config.CallTimeout, address.GetRPCAddresses("transfer"),
 	)
+
+	go GetIndexLoop()
 }

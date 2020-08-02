@@ -3,6 +3,7 @@ package plugins
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"os/exec"
 	"path/filepath"
 	"strings"
@@ -13,7 +14,7 @@ import (
 	"github.com/toolkits/pkg/sys"
 
 	"github.com/didi/nightingale/src/dataobj"
-	"github.com/didi/nightingale/src/modules/collector/sys/funcs"
+	"github.com/didi/nightingale/src/modules/collector/core"
 )
 
 type PluginScheduler struct {
@@ -62,9 +63,27 @@ func PluginRun(plugin *Plugin) {
 	cmd := exec.Command(fpath, params...)
 	cmd.Dir = filepath.Dir(fpath)
 	var stdout bytes.Buffer
+
 	cmd.Stdout = &stdout
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
+
+	if plugin.Stdin != "" {
+		cmd.Stdin = bytes.NewReader([]byte(plugin.Stdin))
+	}
+
+	if plugin.Env != "" {
+		envs := make(map[string]string)
+		err := json.Unmarshal([]byte(plugin.Env), &envs)
+		if err != nil {
+			logger.Errorf("plugin:%+v %v", plugin, err)
+			return
+		}
+		for k, v := range envs {
+			cmd.Env = append(cmd.Env, fmt.Sprintf("%s=%s", k, v))
+		}
+	}
+
 	err := cmd.Start()
 	if err != nil {
 		logger.Error(err)
@@ -99,9 +118,11 @@ func PluginRun(plugin *Plugin) {
 	// exec successfully
 	data := stdout.Bytes()
 	if len(data) == 0 {
-		logger.Debug("stdout of", fpath, "is blank")
+		logger.Debug("stdout of ", fpath, " is blank")
 		return
 	}
+
+	logger.Debug(fpath, " stdout: ", string(data))
 
 	var items []*dataobj.MetricValue
 	err = json.Unmarshal(data, &items)
@@ -115,5 +136,9 @@ func PluginRun(plugin *Plugin) {
 		return
 	}
 
-	funcs.Push(items)
+	for i := 0; i < len(items); i++ {
+		items[i].Step = int64(plugin.Cycle)
+	}
+
+	core.Push(items)
 }
